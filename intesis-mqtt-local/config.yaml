@@ -1,5 +1,5 @@
 name: "Intesis AC MQTT Local"
-version: "1.0.3"
+version: "1.0.5"
 slug: "intesis_mqtt_local"
 description: "Local MQTT bridge for IntesisHome AC controllers"
 url: "https://github.com/your-username/your-repo"
