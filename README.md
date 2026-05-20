@@ -34,7 +34,7 @@ A Home Assistant local add-on that connects **IntesisHome AC units** to Home Ass
 2. Click **⋮** (top-right menu) → **Repositories**
 3. Paste the URL of this repository:
    ```
-   https://github.com/Fahed-Alhammadi/IntesisHome-MQTT
+   [https://github.com/Fahed-Alhammadi/IntesisHome-MQTT]
    ```
 4. Click **Add**, then close the dialog
 5. Scroll down to find **IntesisHome MQTT Bridge** and click **Install**
