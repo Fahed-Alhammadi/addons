@@ -1,24 +1,25 @@
+# 1. Base Image - Multi-architecture manifest handled natively by BuildKit
 FROM ghcr.io/home-assistant/base:latest
 
-# Install Python and pip
-RUN apk add --no-cache python3 py3-pip
+# 2. Environment Variables - Force Python to print logs instantly to Home Assistant
+ENV PYTHONUNBUFFERED=1
 
-# Install necessary libraries
-RUN pip3 install --no-cache-dir paho-mqtt pyintesishome --break-system-packages
+# 3. System Dependencies - Install Python 3 and package manager
+RUN apk add --no-cache \
+    python3 \
+    py3-pip
 
-# Copy scripts to their proper locations
+# 4. Python Libraries - Install MQTT and Intesis packages globally
+RUN pip3 install --no-cache-dir \
+    paho-mqtt \
+    pyintesishome \
+    --break-system-packages
+
+# 5. File Management - Move scripts to safe paths
 COPY intesis_mqtt.py /intesis_mqtt.py
 
-# Put run.sh where s6-overlay expects services to live
+# 6. Service Initiation - Move execution wrapper into s6-overlay management folder
 COPY run.sh /etc/services.d/intesis_mqtt/run
 
-# Make sure both scripts have execution permissions
+# 7. Permissions - Ensure file paths possess structural execution bits
 RUN chmod a+x /etc/services.d/intesis_mqtt/run
-
-# Copy local data paths
-COPY run.sh /
-COPY intesis_mqtt.py /
-
-RUN chmod a+x /run.sh
-
-CMD [ "/run.sh" ]
