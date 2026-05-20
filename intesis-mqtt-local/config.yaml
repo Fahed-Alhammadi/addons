@@ -1,0 +1,25 @@
+name: "IntesisHome MQTT Bridge"
+description: "Bridges IntesisHome AC units to Home Assistant via MQTT"
+version: "1.0.0"
+slug: "intesis_mqtt_local"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armv7
+options:
+  intesis_user: "YOUR_EMAIL"
+  intesis_pass: "YOUR_PASSWORD"
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_user: "mqtt_user"
+  mqtt_pass: "mqtt_pass"
+  update_interval: 30
+schema:
+  intesis_user: str
+  intesis_pass: str
+  mqtt_host: str
+  mqtt_port: int
+  mqtt_user: str
+  mqtt_pass: str
+  update_interval: int
