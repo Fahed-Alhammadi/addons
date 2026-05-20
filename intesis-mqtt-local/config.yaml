@@ -2,7 +2,7 @@ name: "Intesis AC MQTT Local"
 version: "1.0.7"
 slug: "intesis_mqtt_local"
 description: "Local MQTT bridge for IntesisHome AC controllers"
-url: "https://github.com/Fahed-Alhammadi/home-assistant-addons"
+url: "https://github.com/Fahed-Alhammadi/IntesisHome-MQTT"
 startup: "services"
 boot: "auto"
 init: false
