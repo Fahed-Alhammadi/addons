@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/%%BASE_IMAGE%%:latest
 FROM $BUILD_FROM
 
 # Install Python and pip
