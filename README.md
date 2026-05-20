@@ -138,12 +138,6 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ---
 
-## License
-
-[MIT](LICENSE)
-
----
-
 ## Acknowledgements
 
 - [`pyintesishome`](https://github.com/jnimmo/pyintesishome) — Python library for the IntesisHome cloud API
