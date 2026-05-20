@@ -1,5 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/%%BASE_IMAGE%%:latest
-FROM $BUILD_FROM
+FROM ghcr.io/home-assistant/base:latest
 
 # Install Python and pip
 RUN apk add --no-cache python3 py3-pip
