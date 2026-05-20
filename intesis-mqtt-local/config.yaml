@@ -1,6 +1,6 @@
 name: "IntesisHome MQTT Bridge"
 description: "Bridges IntesisHome AC units to Home Assistant via MQTT"
-version: "1.0.2"
+version: "1.0.3"
 slug: "intesis_mqtt_local"
 init: false
 arch:
