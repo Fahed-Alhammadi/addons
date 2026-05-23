@@ -15,6 +15,8 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASS = os.getenv("MQTT_PASS")
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", 30))
+# Set to "F" to work in Fahrenheit; any other value defaults to Celsius
+TEMP_UNIT = os.getenv("TEMP_UNIT", "C").strip().upper()
 
 if not INTESIS_USER or not INTESIS_PASS:
     print("❌ Fatal Configuration Error: Intesis credentials are empty!")
@@ -23,6 +25,29 @@ if not INTESIS_USER or not INTESIS_PASS:
 controller = None
 loop = None
 command_lock = False
+
+# =========================
+# TEMPERATURE HELPERS
+# =========================
+def c_to_f(celsius):
+    """Convert Celsius to Fahrenheit, rounded to nearest integer."""
+    return round(celsius * 9 / 5 + 32)
+
+def f_to_c(fahrenheit):
+    """Convert Fahrenheit to Celsius, rounded to nearest integer (Intesis only accepts °C)."""
+    return round((fahrenheit - 32) * 5 / 9)
+
+def to_display_temp(celsius_value):
+    """Convert a Celsius value from Intesis to the configured display unit."""
+    if celsius_value is None:
+        return None
+    val = float(celsius_value)
+    return c_to_f(val) if TEMP_UNIT == "F" else round(val)
+
+def to_intesis_temp(display_value):
+    """Convert a display-unit value from MQTT to Celsius for Intesis."""
+    val = int(round(float(display_value)))
+    return f_to_c(val) if TEMP_UNIT == "F" else val
 
 # =========================
 # MQTT CLIENT
@@ -49,7 +74,9 @@ async def handle_command(device_id, command, payload):
             if val != "off":
                 client.publish(f"{base}/power", "ON", retain=True)
         elif command == "temperature":
-            client.publish(f"{base}/temperature", str(int(round(float(payload)))), retain=True)
+            # Publish back in display unit (what HA sent us)
+            display_temp = int(round(float(payload)))
+            client.publish(f"{base}/temperature", str(display_temp), retain=True)
         elif command == "fan":
             client.publish(f"{base}/fan", val, retain=True)
 
@@ -65,7 +92,7 @@ async def handle_command(device_id, command, payload):
                 print(f"🔌 Sending initial Power ON trigger to {device_id}...")
                 await controller.set_power_on(device_id)
                 await asyncio.sleep(1.5)
-                
+
                 print(f"❄ Directing mode alteration frame -> Mode: {val}")
                 if val == "cool":
                     await controller.set_mode_cool(device_id)
@@ -77,8 +104,10 @@ async def handle_command(device_id, command, payload):
                     await controller.set_mode_auto(device_id)
 
         elif command == "temperature":
-            target_temp = int(round(float(payload)))
-            await controller.set_temperature(device_id, target_temp)
+            # Always send Celsius to Intesis regardless of display unit
+            intesis_temp = to_intesis_temp(payload)
+            print(f"🌡 Temperature command: {payload}°{TEMP_UNIT} → {intesis_temp}°C sent to Intesis")
+            await controller.set_temperature(device_id, intesis_temp)
         elif command == "fan":
             await controller.set_fan_speed(device_id, val)
 
@@ -120,8 +149,8 @@ async def publish_state(device_id):
     try:
         power = controller.get_power_state(device_id)
         mode = controller.get_mode(device_id)
-        setpoint = controller.get_setpoint(device_id)
-        ambient = controller.get_temperature(device_id)
+        setpoint = controller.get_setpoint(device_id)   # always °C from Intesis
+        ambient = controller.get_temperature(device_id) # always °C from Intesis
         fan = controller.get_fan_speed(device_id)
 
         base = f"intesis/{device_id}/state"
@@ -131,24 +160,40 @@ async def publish_state(device_id):
         ha_mode = str(mode).lower() if is_on else "off"
         if ha_mode == "fan":
             ha_mode = "fan_only"
-            
+
         client.publish(f"{base}/mode", ha_mode, retain=True)
-        if setpoint:
-            client.publish(f"{base}/temperature", str(int(round(float(setpoint)))), retain=True)
-        if ambient:
-            client.publish(f"{base}/current_temperature", str(ambient), retain=True)
+
+        if setpoint is not None:
+            display_setpoint = to_display_temp(setpoint)
+            client.publish(f"{base}/temperature", str(display_setpoint), retain=True)
+
+        if ambient is not None:
+            display_ambient = to_display_temp(ambient)
+            client.publish(f"{base}/current_temperature", str(display_ambient), retain=True)
+
         if fan:
             client.publish(f"{base}/fan", str(fan).lower(), retain=True)
+
     except Exception as e:
         print(f"❌ State query error for {device_id}:", e)
 
 async def publish_discovery(device_id, name):
     topic = f"homeassistant/climate/{device_id}/config"
     fan_modes = ["quiet", "low", "medium", "high", "auto"]
+
+    # Temperature range in the configured display unit
+    if TEMP_UNIT == "F":
+        temp_min = c_to_f(16)   # 61°F
+        temp_max = c_to_f(30)   # 86°F
+    else:
+        temp_min = 16
+        temp_max = 30
+
     payload = {
         "name": name,
         "uniq_id": f"intesis_{device_id}",
         "object_id": f"intesis_{device_id}",
+        "temperature_unit": TEMP_UNIT,   # tells HA which unit to display
         "mode_cmd_t": f"intesis/{device_id}/set/mode",
         "mode_stat_t": f"intesis/{device_id}/state/mode",
         "temp_cmd_t": f"intesis/{device_id}/set/temperature",
@@ -160,8 +205,8 @@ async def publish_discovery(device_id, name):
         "pow_stat_t": f"intesis/{device_id}/state/power",
         "modes": ["off", "cool", "dry", "fan_only", "auto"],
         "fan_modes": fan_modes,
-        "temp_min": 16,
-        "temp_max": 30,
+        "temp_min": temp_min,
+        "temp_max": temp_max,
         "temp_step": 1,
         "device": {
             "identifiers": [f"intesis_{device_id}"],
@@ -171,7 +216,7 @@ async def publish_discovery(device_id, name):
         }
     }
     client.publish(topic, json.dumps(payload), retain=True)
-    print(f"📡 Sent updated MQTT Discovery configurations for: {name}")
+    print(f"📡 Sent updated MQTT Discovery configurations for: {name} (unit: °{TEMP_UNIT})")
 
 # =========================
 # MAIN
@@ -180,6 +225,7 @@ async def main():
     global controller, loop, command_lock
     loop = asyncio.get_running_loop()
 
+    print(f"🌡 Temperature display unit: °{TEMP_UNIT}")
     print("🔄 Connecting to IntesisHome Cloud...")
     controller = IntesisHome(INTESIS_USER, INTESIS_PASS)
     await controller.connect()
